@@ -3,11 +3,11 @@ import os
 from setuptools import setup, find_packages
 import subprocess
 
-try:
-    rev = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"]).decode().strip()
-    subprocess.check_output(["sed", "-i", f"s/$dev/{rev}/g", "iox.py"])
-except subprocess.CalledProcessError as e:
-    pass
+# try:
+#     rev = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"]).decode().strip()
+#     subprocess.check_output(["sed", "-i", f"s/$dev/{rev}/g", "iox.py"])
+# except subprocess.CalledProcessError as e:
+#     pass
 
 from iox import __version__
 

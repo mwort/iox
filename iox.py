@@ -32,7 +32,7 @@ from typing import List, Dict, Any
 from functools import partial
 
 # will be replaced by the git commit hash during setup.py
-__version__ = "0+$dev"
+__version__ = "0.1.0"
 
 
 class Paths(list):
