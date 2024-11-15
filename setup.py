@@ -19,7 +19,7 @@ setup(
     # Additional metadata
     author="Michel Wortmann",
     author_email="michel.wortmann@ecmwf.int",
-    description="Check input and output to conditionally execute commands in parallel",
+    long_description="Check input and output to conditionally execute commands in parallel",
     url="https://github.com/mwort/iox",
     classifiers=[
         "Programming Language :: Python :: 3",
