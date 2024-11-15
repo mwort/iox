@@ -31,6 +31,9 @@ from pathlib import Path
 from typing import List, Dict, Any
 from functools import partial
 
+# will be replaced by the git commit hash during setup.py
+__version__ = "0+$dev"
+
 
 class Paths(list):
     def __init__(self, *paths):

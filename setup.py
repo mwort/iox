@@ -1,8 +1,19 @@
+#!/usr/bin/env python3
+import os
 from setuptools import setup, find_packages
+import subprocess
+
+try:
+    rev = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"]).decode().strip()
+    subprocess.check_output(["sed", "-i", f"s/$dev/{rev}/g", "iox.py"])
+except subprocess.CalledProcessError as e:
+    pass
+
+from iox import __version__
 
 setup(
     name="iox",
-    version="0.1.0",
+    version=__version__,
     package_dir={"": "."},
     entry_points={'console_scripts': ["iox=iox:__main__"]},
     # Additional metadata
