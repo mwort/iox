@@ -26,6 +26,12 @@ $ iox -i input_{a}/{d}.csv -o output/{a}_{d}.csv \\
     --combinations -a type1 type2 type2 -d 2020 2021 2022 \\
     --exec "command --year {d} -t {a} {input} {output}"
 ```
+Jobs in a pipeline, input/output paths are passed through:
+```
+$ echo f1 f2 f3 \
+    | iox -o f4 -x "echo {input} > {output}" \
+    | iox -o summary -x "cat {input} > {output}"
+```
 
 
 ## Testing/releasing

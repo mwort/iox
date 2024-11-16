@@ -21,6 +21,11 @@ Parallel jobs with combinations of wildcards:
 $ iox -i input_{a}/{d}.csv -o output/{a}_{d}.csv \\
     --combinations -a type1 type2 type2 -d 2020 2021 2022 \\
     --exec "command --year {d} -t {a} {input} {output}"
+
+Jobs in a pipeline, input/output paths are passed through:
+$ echo f1 f2 f3 \\
+    | iox -o f4 -x "echo {input} > {output}" \\
+    | iox -o summary -x "cat {input} > {output}"
 """
 import subprocess
 from shutil import rmtree
@@ -207,15 +212,15 @@ def check_io_parallel(
         logging.debug(f"-i {i} -o {o} --exec {e}")
 
     def update_progress():
-        nonlocal completed_jobs
+        nonlocal completed_jobs, total_jobs
         completed_jobs += 1
         prec = len(str(total_jobs))
-        percentage = f"{(completed_jobs / total_jobs) * 100:03.{prec-1}f}".zfill(prec+3)
-        return f"[{completed_jobs:0{prec}d}/{total_jobs} ({percentage}%)] "
+        pct = f"{(completed_jobs / total_jobs) * 100:03.{prec-1}f}".zfill(prec + 3)
+        return f"[{completed_jobs:0{prec}d}/{total_jobs} ({pct}%)] "
 
     def report_complete(result):
         progress = update_progress()
-        logging.warn(progress + result["exec"])
+        logging.warning(progress + result["exec"])
 
     def report_error(error):
         progress = update_progress()
@@ -226,18 +231,22 @@ def check_io_parallel(
     worker_func = partial(check_io, **kwargs)
 
     # initialise progress
-    logging.warn(update_progress())
+    logging.warning(update_progress())
     pool = mp.Pool(jobs)
+    res = []
     for i, o, e in zip(inputs, outputs, execs):
-        pool.apply_async(
+        r = pool.apply_async(
             worker_func,
             args=(i, o, e),
             callback=report_complete,
             error_callback=report_error,
         )
+        res.append(r)
     pool.close()
     pool.join()
-    return
+    # get results
+    out = [r.get() for r in res]
+    return out
 
 
 def parse_wildcards(unknown_args: List[str]) -> Dict[str, str]:
@@ -327,17 +336,27 @@ def __main__() -> None:
     )
     for arg in arguments:
         parser.add_argument(*arg["names"], help=arg["help"], **arg["args"])
-    args, unknown_args = parser.parse_known_args()
-    wildcards = parse_wildcards(unknown_args)
+
+    args, wildcard_args = parser.parse_known_args()
+    args = vars(args)
+    # add stdin if given
+    std_input = sys.stdin.read().split() if not sys.stdin.isatty() else []
+    args["input"] = Paths(*args["input"] + std_input)
 
     # set up logging
     loglevel = "DEBUG" if args["verbose"] else ("WARNING" if args["quiet"] else "INFO")
     logging.basicConfig(level=getattr(logging, loglevel), format="%(message)s")
 
-    if wildcards:
-        check_io_parallel(wildcards, **vars(args))
+    if wildcard_args:
+        wildcards = parse_wildcards(wildcard_args)
+        result = check_io_parallel(wildcards, **args)
     else:
-        check_io(**vars(args))
+        result = [check_io(**args)]
+
+    # if piping/redirecting, print the output files to stdout
+    if not sys.stdout.isatty():
+        print(Paths(*[p for r in result for p in r["output"]]))
+    return
 
 
 if __name__ == "__main__":

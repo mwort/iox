@@ -1,4 +1,6 @@
 import os
+import subprocess
+
 import pytest
 
 from iox import *
@@ -13,6 +15,7 @@ def temp_input_files():
     yield files
     files.remove()
 
+
 @pytest.fixture
 def temp_output_files():
     files = Paths("output1.txt", "output2.txt")
@@ -24,7 +27,8 @@ def test_check_non_existing(temp_input_files):
     # Test when all files exist
     assert temp_input_files.non_existing() == []
     # Test when some files do not exist
-    assert Paths("nonexistent.txt", *temp_input_files).non_existing() == Paths("nonexistent.txt")
+    notallexist = Paths("nonexistent.txt", *temp_input_files)
+    assert notallexist.non_existing() == Paths("nonexistent.txt")
 
 
 def test_check_io_input_files(temp_input_files):
@@ -62,6 +66,7 @@ def test_check_io_force(temp_input_files):
     )
     assert temp_input_files[1].exists()
     assert temp_input_files[1].lstat().st_mtime > mt
+
 
 def test_check_io_dry_run(temp_input_files):
     ieout = Paths("tmp")
@@ -128,3 +133,31 @@ def test_check_io_parallel(temp_input_files, temp_output_files):
     with pytest.raises(AssertionError) as excinfo:
         kwargs["output"] = ["{date}/{d}.txt"]
         check_io_parallel(dict(date=[1], **wildcards), **kwargs)
+
+
+def test_io_indexing(temp_input_files, temp_output_files):
+    check_io(
+        temp_input_files,
+        temp_output_files,
+        ["touch", "{output[0]}", "&&", "echo 123 >", "{output[1]}"],
+    )
+    assert temp_output_files.exists()
+    with open(temp_output_files[1]) as f:
+        assert f.read() == "123\n"
+
+
+def test_pipe(temp_input_files, temp_output_files):
+    subprocess.check_call(
+        (f"echo {temp_input_files}"
+         f"| ./iox.py -o {temp_output_files[0]} -x 'echo {{input}} > {{output}}'"
+         f"| ./iox.py -o {temp_output_files[1]} -x 'echo {{input}} > {{output}}'"
+        ),
+        shell=True,
+    )
+    assert all(temp_output_files.exists())
+    # first output file should contain the input files
+    with open(temp_output_files[0]) as f:
+        assert f.read() == f"{temp_input_files}\n"
+    # second output file should contain the first output file
+    with open(temp_output_files[1]) as f:
+        assert f.read() == f"{temp_output_files[0]}\n"
