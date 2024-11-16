@@ -30,6 +30,7 @@ import string
 from pathlib import Path
 from typing import List, Dict, Any
 from functools import partial
+import logging
 
 # will be replaced by the git commit hash during setup.py
 __version__ = "0.1.0"
@@ -84,6 +85,7 @@ def safe_format(s: str, **kwargs) -> str:
     class SafeFormatter(dict):
         def __missing__(self, key):
             return "{" + key + "}"
+
     return s.format_map(SafeFormatter(**kwargs))
 
 
@@ -122,7 +124,6 @@ def check_io(
     exec: List[str] = [],
     force: bool = False,
     dry_run: bool = False,
-    verbose: bool = False,
     quiet: bool = False,
     update: bool = False,
     **kwargs,
@@ -133,10 +134,9 @@ def check_io(
     exec = safe_format(" ".join(exec), input=input, output=output)
 
     # Print for debugging
-    verbose = print if verbose else lambda *a, **k: None
-    verbose(f"Input: {input}")
-    verbose(f"Output: {output}")
-    verbose(f"Exec: {exec}")
+    logging.debug(f"Input: {input}")
+    logging.debug(f"Output: {output}")
+    logging.debug(f"Exec: {exec}")
 
     # job info to return
     job_info = {"input": input, "output": output, "exec": exec}
@@ -149,20 +149,21 @@ def check_io(
     # check if outputs need to be updated
     if update:
         eout = output.existing()
-        if len(eout) > 0 and min(eout.modification_time()) < max(input.modification_time()):
-            verbose(f"Updating: {eout}")
+        needs_update = min(eout.modification_time()) < max(input.modification_time())
+        if len(eout) > 0 and needs_update:
+            logging.info(f"Updating: {eout}")
             force = True
     # Check if all output paths exist
     if output and all(output.exists()) and not force:
-        print("All output paths exist, nothing to be done. Exiting.")
+        logging.info("All output paths exist, nothing to be done. Exiting.")
         return job_info
 
     if dry_run:
         eout = output.existing()
         if eout:
-            print(f"Would clean and recreate: {eout}")
-        print(f"Would execute: {exec}")
-        print("Dry run. Exiting.")
+            logging.info(f"Would clean and recreate: {eout}")
+        logging.info(f"Would execute: {exec}")
+        logging.info("Dry run. Exiting.")
         return job_info
 
     # Clean output and make sure all directories exist
@@ -187,46 +188,45 @@ def check_io_parallel(
     input: List[Path],
     output: List[Path],
     exec: List[str],
-    verbose: bool = False,
     jobs: int = 1,
     combinations: bool = False,
     **kwargs,
 ) -> None:
     import multiprocessing as mp
 
-    if verbose:
-        print(f"Input: {input}")
-        print(f"Output: {output}")
-        print(f"Wildcards: {wildcards}")
+    logging.debug(f"Input: {input}")
+    logging.debug(f"Output: {output}")
+    logging.debug(f"Wildcards: {wildcards}")
 
     inputs = format_wildcards(wildcards, input, combinations, allow_missing=True)
     outputs = format_wildcards(wildcards, output, combinations)
     execs = format_wildcards(wildcards, exec, combinations, allow_missing=True)
 
-    if verbose:
-        print("Parallel jobs:")
-        for i, o, e in zip(inputs, outputs, execs):
-            print(f"-i {i} -o {o} --exec {e}")
+    logging.debug("Parallel jobs:")
+    for i, o, e in zip(inputs, outputs, execs):
+        logging.debug(f"-i {i} -o {o} --exec {e}")
 
     def update_progress():
         nonlocal completed_jobs
         completed_jobs += 1
-        percentage = (completed_jobs / total_jobs) * 100
         prec = len(str(total_jobs))
-        return f"[{completed_jobs:0{prec}d}/{total_jobs} ({percentage:3.{prec-1}f}%)] "
+        percentage = f"{(completed_jobs / total_jobs) * 100:03.{prec-1}f}".zfill(prec+3)
+        return f"[{completed_jobs:0{prec}d}/{total_jobs} ({percentage}%)] "
 
     def report_complete(result):
         progress = update_progress()
-        print(progress + result["exec"])
+        logging.warn(progress + result["exec"])
 
     def report_error(error):
         progress = update_progress()
-        print(progress + str(error))
+        logging.error(progress + str(error))
 
     total_jobs = len(inputs)
-    completed_jobs = 0
-    worker_func = partial(check_io, verbose=verbose, **kwargs)
+    completed_jobs = -1
+    worker_func = partial(check_io, **kwargs)
 
+    # initialise progress
+    logging.warn(update_progress())
     pool = mp.Pool(jobs)
     for i, o, e in zip(inputs, outputs, execs):
         pool.apply_async(
@@ -274,7 +274,7 @@ def __main__() -> None:
             "help": "Output path/pattern",
         },
         {
-            "names": ("-x", "--exec",),
+            "names": ("-x", "--exec"),
             "args": {"nargs": argparse.REMAINDER, "required": True},
             "help": "Command to execute",
         },
@@ -329,6 +329,10 @@ def __main__() -> None:
         parser.add_argument(*arg["names"], help=arg["help"], **arg["args"])
     args, unknown_args = parser.parse_known_args()
     wildcards = parse_wildcards(unknown_args)
+
+    # set up logging
+    loglevel = "DEBUG" if args["verbose"] else ("WARNING" if args["quiet"] else "INFO")
+    logging.basicConfig(level=getattr(logging, loglevel), format="%(message)s")
 
     if wildcards:
         check_io_parallel(wildcards, **vars(args))
