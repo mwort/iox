@@ -161,3 +161,15 @@ def test_pipe(temp_input_files, temp_output_files):
     # second output file should contain the first output file
     with open(temp_output_files[1]) as f:
         assert f.read() == f"{temp_output_files[0]}\n"
+
+
+def test_incomplete_command(temp_input_files, temp_output_files):
+    with pytest.raises(subprocess.CalledProcessError) as excinfo:
+        check_io(temp_input_files, temp_output_files,
+                 ["touch {output} &&", "exit 1"])
+    assert not any(temp_output_files.exists())
+    incpths = Paths(*[f.parent/INCOMPLETE_DIR/f.name for f in temp_output_files])
+    assert all(incpths.exists())
+    incpths.unlink()
+    incpths.parent[0].rmdir()
+    assert not any(incpths.exists())

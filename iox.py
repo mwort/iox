@@ -40,6 +40,8 @@ import logging
 # will be replaced by the git commit hash during setup.py
 __version__ = "0.1.0"
 
+INCOMPLETE_DIR = "iox_incomplete"
+
 
 class Paths(list):
     def __init__(self, *paths):
@@ -177,7 +179,19 @@ def check_io(
 
     # Execute the command
     stdout = open("/dev/null", "w") if quiet else sys.stdout
-    subprocess.run(exec, shell=True, check=True, stdout=stdout)
+    try:
+        run = subprocess.run(exec, shell=True, check=True, stdout=stdout)
+    except subprocess.CalledProcessError as e:
+        logging.error(f"Error running {exec}: {e}")
+        # move any existing output to a iox_incomplete dir
+        incomplete = output.existing()
+        if incomplete:
+            for i in incomplete:
+                incomplete_dir = i.parent / INCOMPLETE_DIR
+                incomplete_dir.mkdir(exist_ok=True)
+                i.rename(incomplete_dir / i.name)
+                logging.warning(f"Moved incomplete output to {incomplete_dir / i.name}")
+        raise e
 
     # Exit if not all output paths exist
     ieout = output.non_existing()
