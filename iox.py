@@ -126,7 +126,11 @@ def format_wildcards(
 
 
 def check_output(
-    input: Paths, output: Paths, update: bool = False, dry_run: bool = False
+    input: Paths,
+    output: Paths,
+    update: bool = False,
+    dry_run: bool = False,
+    force: bool = False,
 ) -> bool:
     # check if outputs need to be updated
     eout = output.existing()
@@ -136,7 +140,7 @@ def check_output(
         if needs_update:
             logging.info(f"Updating: {eout}")
     # Check if all output paths exist
-    if output and all(output.exists()) and not needs_update:
+    if output and all(output.exists()) and not needs_update and not force:
         return True
 
     if dry_run:
@@ -190,7 +194,7 @@ def check_io(
     if len(iein) > 0:
         raise FileNotFoundError(f"Input paths do not exist: {iein} - exiting.")
 
-    output_uptodate = check_output(input, output, update, dry_run)
+    output_uptodate = check_output(input, output, update, dry_run, force)
 
     if output_uptodate and not force:
         logging.info("All output paths exist, nothing to be done. Exiting.")
