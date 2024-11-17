@@ -40,7 +40,7 @@ import logging
 # will be replaced by the git commit hash during setup.py
 __version__ = "0.1.0"
 
-INCOMPLETE_DIR = "iox_incomplete"
+INCOMPLETE_EXT = "iox_incomplete"
 
 
 class Paths(list):
@@ -125,6 +125,43 @@ def format_wildcards(
     return out
 
 
+def check_output(
+    input: Paths, output: Paths, update: bool = False, dry_run: bool = False
+) -> bool:
+    # check if outputs need to be updated
+    eout = output.existing()
+    needs_update = False
+    if eout and update:
+        needs_update = min(eout.modification_time()) < max(input.modification_time())
+        if needs_update:
+            logging.info(f"Updating: {eout}")
+    # Check if all output paths exist
+    if output and all(output.exists()) and not needs_update:
+        return True
+
+    if dry_run:
+        if eout:
+            logging.info(f"Would clean and recreate: {eout}")
+        return False
+    # Clean output and make sure all directories exist
+    eout.remove()
+    output.parent.mkdir(parents=True, exist_ok=True)
+    return False
+
+
+def handle_incomplete_output(output: Paths) -> None:
+    # move any existing output to a iox_incomplete dir
+    incomplete = output.existing()
+    incompletes = {}
+    if incomplete:
+        for p in incomplete:
+            incomplete_name = p.parent / f"{p.stem}_{INCOMPLETE_EXT}{p.suffix}"
+            p.rename(incomplete_name)
+            logging.warning(f"Moved incomplete output to {incomplete_name}")
+            incompletes[p] = incomplete_name
+    return incompletes
+
+
 def check_io(
     input: Paths = Paths(),
     output: Paths = Paths(),
@@ -153,29 +190,16 @@ def check_io(
     if len(iein) > 0:
         raise FileNotFoundError(f"Input paths do not exist: {iein} - exiting.")
 
-    # check if outputs need to be updated
-    if update:
-        eout = output.existing()
-        needs_update = min(eout.modification_time()) < max(input.modification_time())
-        if len(eout) > 0 and needs_update:
-            logging.info(f"Updating: {eout}")
-            force = True
-    # Check if all output paths exist
-    if output and all(output.exists()) and not force:
+    output_uptodate = check_output(input, output, update, dry_run)
+
+    if output_uptodate and not force:
         logging.info("All output paths exist, nothing to be done. Exiting.")
         return job_info
 
     if dry_run:
-        eout = output.existing()
-        if eout:
-            logging.info(f"Would clean and recreate: {eout}")
         logging.info(f"Would execute: {exec}")
         logging.info("Dry run. Exiting.")
         return job_info
-
-    # Clean output and make sure all directories exist
-    output.remove()
-    output.parent.mkdir(parents=True, exist_ok=True)
 
     # Execute the command
     stdout = open("/dev/null", "w") if quiet else sys.stdout
@@ -183,14 +207,7 @@ def check_io(
         run = subprocess.run(exec, shell=True, check=True, stdout=stdout)
     except subprocess.CalledProcessError as e:
         logging.error(f"Error running {exec}: {e}")
-        # move any existing output to a iox_incomplete dir
-        incomplete = output.existing()
-        if incomplete:
-            for i in incomplete:
-                incomplete_dir = i.parent / INCOMPLETE_DIR
-                incomplete_dir.mkdir(exist_ok=True)
-                i.rename(incomplete_dir / i.name)
-                logging.warning(f"Moved incomplete output to {incomplete_dir / i.name}")
+        handle_incomplete_output(output)
         raise e
 
     # Exit if not all output paths exist

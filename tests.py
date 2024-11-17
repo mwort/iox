@@ -148,9 +148,10 @@ def test_io_indexing(temp_input_files, temp_output_files):
 
 def test_pipe(temp_input_files, temp_output_files):
     subprocess.check_call(
-        (f"echo {temp_input_files}"
-         f"| ./iox.py -o {temp_output_files[0]} -x 'echo {{input}} > {{output}}'"
-         f"| ./iox.py -o {temp_output_files[1]} -x 'echo {{input}} > {{output}}'"
+        (
+            f"echo {temp_input_files}"
+            f"| ./iox.py -o {temp_output_files[0]} -x 'echo {{input}} > {{output}}'"
+            f"| ./iox.py -o {temp_output_files[1]} -x 'echo {{input}} > {{output}}'"
         ),
         shell=True,
     )
@@ -165,11 +166,11 @@ def test_pipe(temp_input_files, temp_output_files):
 
 def test_incomplete_command(temp_input_files, temp_output_files):
     with pytest.raises(subprocess.CalledProcessError) as excinfo:
-        check_io(temp_input_files, temp_output_files,
-                 ["touch {output} &&", "exit 1"])
+        check_io(temp_input_files, temp_output_files, ["touch {output} &&", "exit 1"])
     assert not any(temp_output_files.exists())
-    incpths = Paths(*[f.parent/INCOMPLETE_DIR/f.name for f in temp_output_files])
+    incpths = Paths(
+        *[p.parent / f"{p.stem}_{INCOMPLETE_EXT}{p.suffix}" for p in temp_output_files]
+    )
     assert all(incpths.exists())
     incpths.unlink()
-    incpths.parent[0].rmdir()
     assert not any(incpths.exists())
