@@ -4,6 +4,7 @@ import subprocess
 import pytest
 
 from iox import *
+from iox import __main__
 
 
 @pytest.fixture
@@ -164,7 +165,7 @@ def test_pipe(temp_input_files, temp_output_files):
         assert f.read() == f"{temp_output_files[0]}\n"
 
 
-def test_incomplete_command(temp_input_files, temp_output_files):
+def test_incomplete_output(temp_input_files, temp_output_files):
     with pytest.raises(subprocess.CalledProcessError) as excinfo:
         check_io(temp_input_files, temp_output_files, ["touch {output} &&", "exit 1"])
     assert not any(temp_output_files.exists())
@@ -174,3 +175,9 @@ def test_incomplete_command(temp_input_files, temp_output_files):
     assert all(incpths.exists())
     incpths.unlink()
     assert not any(incpths.exists())
+
+
+def test_cli(temp_output_files):
+    sys.argv = "iox.py -o output{d}.txt -d 1 2 -x echo {d} > {output}".split()
+    __main__()
+    assert all(temp_output_files.exists())
