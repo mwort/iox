@@ -38,7 +38,7 @@ from functools import partial
 import logging
 
 # will be replaced by the git commit hash during setup.py
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 INCOMPLETE_EXT = "iox_incomplete"
 
@@ -206,7 +206,7 @@ def check_io(
         return job_info
 
     # Execute the command
-    stdout = open("/dev/null", "w") if quiet else sys.stdout
+    stdout = open(os.devnull, "w") if quiet else sys.stdout
     try:
         run = subprocess.run(exec, shell=True, check=True, stdout=stdout)
     except subprocess.CalledProcessError as e:

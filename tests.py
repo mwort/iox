@@ -179,5 +179,7 @@ def test_incomplete_output(temp_input_files, temp_output_files):
 
 def test_cli(temp_output_files):
     sys.argv = "iox.py -o output{d}.txt -d 1 2 -x echo {d} > {output}".split()
+    # redirect stdin to avoid pytest complain about reading from stdin
+    sys.stdin = open(os.devnull)
     __main__()
     assert all(temp_output_files.exists())
