@@ -37,6 +37,9 @@ $ echo f1 f2 f3 \
 ## Testing/releasing
 
 ```
+vim iox.py  # update version string
+git commit # make sure workdir is clean
+git tag v$(./iox.py --version)
 ./iox.py -o venv -x virtualenv {output}
 source venv/bin/activate
 pip install build twine pytest

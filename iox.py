@@ -38,7 +38,7 @@ from functools import partial
 import logging
 
 # will be replaced by the git commit hash during setup.py
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 INCOMPLETE_EXT = "iox_incomplete"
 
@@ -362,6 +362,11 @@ def __main__() -> None:
             "args": {"action": "help"},
             "help": "Show help message and exit",
         },
+        {
+            "names": ("--version",),
+            "args": {"action": "version", "version": __version__},
+            "help": "Show version and exit",
+        }
     ]
 
     parser = argparse.ArgumentParser(
