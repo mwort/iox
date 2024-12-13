@@ -39,11 +39,12 @@ $ echo f1 f2 f3 \
 ```
 vim iox.py  # update version string
 git commit # make sure workdir is clean
-git tag v$(./iox.py --version)
 ./iox.py -o venv -x virtualenv {output}
 source venv/bin/activate
 pip install build twine pytest
 pytest tests.py
 ./iox.py -i *.py -o dist -u -x python -m build
 python -m twine upload dist/*
+git tag v$(./iox.py --version)
+git push; git push --tags
 ```

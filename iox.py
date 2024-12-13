@@ -102,17 +102,7 @@ def format_wildcards(
     wildcards: Dict[str, List[str]],
     paths: List[str],
     combinations: bool = False,
-    allow_missing: bool = False,
 ) -> List[str]:
-    if not allow_missing:
-        # check that the all wildcard keys appear in the check_io output argument
-        for o in paths:
-            ostr, keys = str(o), wildcards.keys()
-            fkeys = [t[1] for t in string.Formatter.parse("", ostr)]
-            notin = " ".join([k for k in keys if k not in fkeys])
-            errmsg = f"All wildcards ({notin}) must appear in {o}"
-            if len(notin) > 0:
-                raise KeyError(errmsg)
     # expand wildcards
     if combinations:
         combos = list(itertools.product(*wildcards.values()))
@@ -246,9 +236,9 @@ def check_io_parallel(
     logging.debug(f"Output: {output}")
     logging.debug(f"Wildcards: {wildcards}")
 
-    inputs = format_wildcards(wildcards, input, combinations, allow_missing=True)
-    outputs = format_wildcards(wildcards, output, combinations, allow_missing=~combinations)
-    execs = format_wildcards(wildcards, exec, combinations, allow_missing=True)
+    inputs = format_wildcards(wildcards, input, combinations)
+    outputs = format_wildcards(wildcards, output, combinations)
+    execs = format_wildcards(wildcards, exec, combinations)
 
     logging.debug("Parallel jobs:")
     for i, o, e in zip(inputs, outputs, execs):

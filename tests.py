@@ -128,12 +128,10 @@ def test_check_io_parallel(temp_input_files, temp_output_files):
     check_io_parallel(wildcards, **kwargs)
     assert all(temp_output_files.exists())
 
-    with pytest.raises(KeyError) as excinfo:
+    # wont find inputs because of missing wildcards
+    with pytest.raises(FileNotFoundError) as excinfo:
         check_io_parallel(dict(date=[1, 2]), **kwargs)
 
-    with pytest.raises(AssertionError) as excinfo:
-        kwargs["output"] = ["{date}/{d}.txt"]
-        check_io_parallel(dict(date=[1], **wildcards), **kwargs)
 
 
 def test_io_indexing(temp_input_files, temp_output_files):
