@@ -397,7 +397,7 @@ def __main__() -> None:
 
     # if piping/redirecting, print the output files to stdout
     if not sys.stdout.isatty():
-        print(Paths(*[p for r in result for p in r["output"]]))
+        print(' '.join([r["output"] for r in result]))
     return
 
 
