@@ -88,7 +88,7 @@ class Paths(list):
         return [p.stat().st_mtime for p in self]
 
 
-def safe_format(s: str, **kwargs) -> str:
+def safe_format(s: str, kwargs) -> str:
     class SafeFormatter(dict):
         def __missing__(self, key):
             return "{" + key + "}"
