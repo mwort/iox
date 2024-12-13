@@ -33,8 +33,10 @@ import sys
 import itertools
 import string
 from pathlib import Path
+import os
 from typing import List, Dict, Any
 from functools import partial
+from collections import defaultdict
 import logging
 
 # will be replaced by the git commit hash during setup.py
@@ -102,26 +104,32 @@ def format_wildcards(
     combinations: bool = False,
     allow_missing: bool = False,
 ) -> List[str]:
-    # check that all wildcard lists are of the same length
-    wclen = [len(v) for v in wildcards.values()]
-    if not combinations:
-        assert len(set(wclen)) == 1, "All wildcards must be of the same length."
     if not allow_missing:
         # check that the all wildcard keys appear in the check_io output argument
         for o in paths:
             ostr, keys = str(o), wildcards.keys()
-            notin = " ".join([k for k in keys if f"{{{k}}}" not in ostr])
+            fkeys = [t[1] for t in string.Formatter.parse("", ostr)]
+            notin = " ".join([k for k in keys if k not in fkeys])
             errmsg = f"All wildcards ({notin}) must appear in {o}"
             if len(notin) > 0:
                 raise KeyError(errmsg)
     # expand wildcards
-    expander = itertools.product if combinations else zip
-    expand = list(expander(*wildcards.values()))
+    if combinations:
+        combos = list(itertools.product(*wildcards.values()))
+        expand_dict = [dict(zip(wildcards.keys(), c)) for c in combos]
+    else:
+        # group wildcards by length
+        lens = defaultdict(list)
+        for k, v in wildcards.items():
+            lens[len(v)].append(k)
+        wildcard_combos = {}
+        for cw in lens.values():
+            wildcard_combos[tuple(cw)] = list(zip(*[wildcards[v] for v in cw]))
+        # take combinations of wildcards with the same length
+        expand = list(itertools.product(*wildcard_combos.values()))
+        expand_dict = [{kk: vv for k, v in zip(wildcard_combos.keys(), e) for kk, vv in zip(k, v)} for e in expand]
 
-    out = [
-        [safe_format(str(i), **dict(zip(wildcards.keys(), wc))) for i in paths]
-        for wc in expand
-    ]
+    out = [[safe_format(str(i), wc) for i in paths] for wc in expand_dict]
     return out
 
 
@@ -239,7 +247,7 @@ def check_io_parallel(
     logging.debug(f"Wildcards: {wildcards}")
 
     inputs = format_wildcards(wildcards, input, combinations, allow_missing=True)
-    outputs = format_wildcards(wildcards, output, combinations)
+    outputs = format_wildcards(wildcards, output, combinations, allow_missing=~combinations)
     execs = format_wildcards(wildcards, exec, combinations, allow_missing=True)
 
     logging.debug("Parallel jobs:")
@@ -383,8 +391,9 @@ def __main__() -> None:
     args, wildcard_args = parser.parse_known_args()
     args = vars(args)
     # add stdin if given
-    std_input = sys.stdin.read().split() if not sys.stdin.isatty() else []
-    args["input"] = Paths(*args["input"] + std_input)
+    if not sys.stdin.isatty():
+        std_input = sys.stdin.read().split()
+        args["input"] = Paths(*args["input"] + std_input)
 
     # set up logging
     loglevel = "DEBUG" if args["verbose"] else ("WARNING" if args["quiet"] else "INFO")
