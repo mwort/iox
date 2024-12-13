@@ -40,7 +40,7 @@ from collections import defaultdict
 import logging
 
 # will be replaced by the git commit hash during setup.py
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 
 INCOMPLETE_EXT = "iox_incomplete"
 
