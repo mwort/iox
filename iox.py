@@ -179,15 +179,12 @@ def check_io(
     # make sure all Paths and convert lists to space-separated strings
     input = Paths(*input)
     output = Paths(*output)
-    exec = safe_format(" ".join(exec), input=input, output=output)
+    exec = safe_format(" ".join(exec), {"input": input, "output": output})
 
     # Print for debugging
     logging.debug(f"Input: {input}")
     logging.debug(f"Output: {output}")
     logging.debug(f"Exec: {exec}")
-
-    # job info to return
-    job_info = {"input": input, "output": output, "exec": exec}
 
     # Check if all input paths exist
     iein = input.non_existing()
@@ -195,6 +192,9 @@ def check_io(
         raise FileNotFoundError(f"Input paths do not exist: {iein} - exiting.")
 
     output_uptodate = check_output(input, output, update, dry_run, force)
+
+    # job info to return
+    job_info = {"input": str(input), "output": str(output), "exec": exec, "uptodate": output_uptodate}
 
     if output_uptodate and not force:
         logging.info("All output paths exist, nothing to be done. Exiting.")
@@ -250,18 +250,21 @@ def check_io_parallel(
         nonlocal completed_jobs, total_jobs
         completed_jobs += 1
         prec = len(str(total_jobs))
-        pct = f"{(completed_jobs / total_jobs) * 100:03.{prec-1}f}".zfill(prec + 3)
+        pct = f"{(completed_jobs / total_jobs) * 100:03.{prec-1}f}".zfill(prec + 2)
         return f"[{completed_jobs:0{prec}d}/{total_jobs} ({pct}%)] "
 
     def report_complete(result):
         progress = update_progress()
-        logging.warning(progress + result["exec"])
+        if result["uptodate"]:
+            logging.warning(progress + "Up-to-date: " + result["output"])
+        else:
+            logging.warning(progress + result["exec"])
 
     def report_error(error):
         progress = update_progress()
         logging.error(progress + str(error))
 
-    total_jobs = len(inputs)
+    total_jobs = len(outputs)
     completed_jobs = -1
     worker_func = partial(check_io, **kwargs)
 
