@@ -135,7 +135,7 @@ def check_output(
     # check if outputs need to be updated
     eout = output.existing()
     needs_update = False
-    if eout and update:
+    if eout and update and input:
         needs_update = min(eout.modification_time()) < max(input.modification_time())
         if needs_update:
             logging.info(f"Updating: {eout}")
@@ -173,7 +173,7 @@ def check_io(
     force: bool = False,
     dry_run: bool = False,
     quiet: bool = False,
-    update: bool = False,
+    update: bool = True,
     **kwargs,
 ) -> None:
     # make sure all Paths and convert lists to space-separated strings
@@ -343,9 +343,9 @@ def __main__() -> None:
             "help": "Create all combinations of wildcards",
         },
         {
-            "names": ("-u", "--update"),
-            "args": {"action": "store_true"},
-            "help": "Update output files if input files are newer",
+            "names": ("--no-update",),
+            "args": {"action": "store_false", "dest": "update"},
+            "help": "Don't update existing output files even if input files are newer",
         },
         {
             "names": ("-q", "--quiet"),
